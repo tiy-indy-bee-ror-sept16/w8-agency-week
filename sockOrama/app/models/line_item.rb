@@ -4,24 +4,26 @@ class LineItem < ApplicationRecord
   has_one :sock, through: :size
   before_save :change_stock, on: [:create, :update]
 
+  validate :not_ordering_too_damn_much
 
 
 protected
 
-  def change_stock
-    @size = size
-    if num_ordered_changed?
-      @change = (num_ordered_change[0]) - (num_ordered_change[1])
-      @size.in_stock = (size.in_stock + @change)
-      @size.save
-    else
-      @size.in_stock = (size.in_stock - num_ordered)
+  def not_ordering_too_damn_much
+    if quantity_change > size.in_stock
+      errors.add(:base, "We do not have that much in stock")
     end
-    if @size.in_stock >= 1
-      @size.save
+  end
+
+  def change_stock
+    size.update(in_stock: size.in_stock - quantity_change)
+  end
+
+  def quantity_change
+    if num_ordered_changed?
+      num_ordered_change[1] - num_ordered_change[0]
     else
-      @size.rollback!
-      render json: "Cannot order more than available stock!"
+      0
     end
   end
 
